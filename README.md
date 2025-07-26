@@ -4,6 +4,14 @@
 
 Ever wondered exactly when a bowler releases the ball? Or wanted to compare bowling techniques across different players? This system uses cutting-edge computer vision to analyze cricket bowling actions and provide precise, data-driven insights.
 
+## 📸 See It In Action
+
+![Cricket Analysis Interface](screenshots/cricket-analysis-interface.png)
+*Real-time pose estimation with joint angle measurements and AI-powered release point detection*
+
+![Bowling Action Analysis](screenshots/bowling-action-frame.png) 
+*Frame-by-frame analysis showing complete biomechanical breakdown of bowling action*
+
 ## ✨ What Does It Do?
 
 Think of this as your personal cricket analyst that never gets tired. Point it at a bowling video, and it will:
@@ -52,10 +60,16 @@ python main.py --help
 ```bash
 python main.py --mode ui
 ```
-- Upload your video
-- Watch as AI analyzes each frame
-- Click through frames to see the action
-- Download your results
+
+**What you'll see:**
+- **Navigation Panel**: Select videos and view analysis summary
+- **AI Suggestions**: Automatic release point detection with confidence scores
+- **Interactive Display**: Click through frames to see the complete bowling action
+- **Real-time Analysis**: Joint angles and pose estimation overlays
+- **Export Tools**: Download CSV reports and detailed analysis
+
+![Interface Features](screenshots/interface-features.png)
+*Key features: AI suggestion (Frame 150, 85% confidence), pose tracking, and export capabilities*
 
 ### Method 2: Command Line (Great for batch processing)
 ```bash
@@ -86,6 +100,13 @@ All of this happens automatically - you just provide the video!
 - **Release point detection**: "The ball was released at frame 145 (4.83 seconds)"
 - **Confidence scores**: "AI is 87% confident in this prediction"
 - **Joint angles**: Complete biomechanical breakdown
+
+### Visual Insights
+The interface shows you exactly what's happening:
+- **Pose skeleton**: Green lines showing body structure
+- **Joint angles**: Precise measurements at each joint
+- **Release detection**: AI identifies the optimal release frame
+- **Frame navigation**: Step through the entire bowling action
 
 ### Detailed Reports
 ```csv
@@ -122,13 +143,12 @@ The system is built with a clean, modular architecture that's easy to extend:
 
 ```
 🏗️ Project Structure
-├── main.py              # Your starting point
-├── core/                # The main engine
-├── utils/               # Specialized tools
+├── 📁 core/                    # Main analysis engine
+├── 📁 utils/                   # Specialized components  
 │   ├── video_analyzer.py    # Sports2D integration
 │   ├── release_point_detector.py  # AI detection magic
 │   └── result_generator.py      # Data export wizardry
-└── ui/                  # Web interface
+└── 📁 ui/                      # Streamlit web interface
 ```
 
 ### Want to integrate with your own app?
@@ -182,6 +202,16 @@ async def analyze(video: UploadFile):
 - Settle debates about bowling actions
 - Understand what makes great bowlers great
 - Satisfy your curiosity about the game
+
+## 🎥 Live Demo
+
+Here's what you'll see when analyzing a bowling action:
+
+1. **Upload your video** → System extracts frames automatically
+2. **AI analyzes each frame** → Pose detection and joint angle calculation
+3. **Release point suggestion** → "Frame 150 detected with 85% confidence"
+4. **Interactive exploration** → Click through frames to see the complete action
+5. **Export your data** → Download CSV reports for further analysis
 
 ## 🤝 Contributing
 
