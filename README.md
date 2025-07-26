@@ -6,10 +6,10 @@ Ever wondered exactly when a bowler releases the ball? Or wanted to compare bowl
 
 ## 📸 See It In Action
 
-![Cricket Analysis Interface](screenshots/cricket-analysis-interface.png)
+![Cricket Analysis Interface](screenshots/screenshot1.png)
 *Real-time pose estimation with joint angle measurements and AI-powered release point detection*
 
-![Bowling Action Analysis](screenshots/bowling-action-frame.png) 
+![Bowling Action Analysis](screenshots/screenshot2.png) 
 *Frame-by-frame analysis showing complete biomechanical breakdown of bowling action*
 
 ## ✨ What Does It Do?
@@ -68,7 +68,7 @@ python main.py --mode ui
 - **Real-time Analysis**: Joint angles and pose estimation overlays
 - **Export Tools**: Download CSV reports and detailed analysis
 
-![Interface Features](screenshots/interface-features.png)
+![Interface Features](screenshots/screenshot1.png)
 *Key features: AI suggestion (Frame 150, 85% confidence), pose tracking, and export capabilities*
 
 ### Method 2: Command Line (Great for batch processing)
