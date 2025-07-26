@@ -1,0 +1,32 @@
+# Cricket Video Analysis System - Production Requirements
+# Core Dependencies
+
+# Web Framework
+streamlit>=1.28.0
+
+# Computer Vision & Image Processing  
+opencv-python>=4.8.0
+Pillow>=8.0.0
+
+# Data Processing
+pandas>=2.0.0
+numpy>=1.24.0
+
+# Sports Motion Analysis
+Sports2D>=0.4.0
+
+# YOLO Object Detection
+ultralytics>=8.0.0
+
+# Machine Learning (PyTorch backend for YOLO)
+torch>=1.9.0
+torchvision>=0.10.0
+
+# Visualization
+matplotlib>=3.5.0
+
+# Configuration Management
+toml>=0.10.0
+
+# Standard Library (usually included, but explicit for clarity)
+pathlib2>=2.3.0; python_version<"3.4" 

@@ -1,0 +1,132 @@
+# Cricket Video Analysis System - .gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Virtual environments
+.env/
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Project-specific
+
+# Video files (too large for git)
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# Large model files
+*.pt
+*.pth
+*.onnx
+*.pb
+
+# Temporary analysis outputs
+analysis_output/
+output/
+*_output/
+test_*_output/
+
+# Generated CSV files (except sample/template files)
+*_analysis.csv
+release_point_analysis.csv
+*_results.csv
+test_*.csv
+*_debug.txt
+
+# Log files
+logs.txt
+*.log
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Windows
+desktop.ini
+
+# Streamlit
+.streamlit/
+
+# YOLO detection results
+*_yolo_results.json
+detection_*.png
+detection_*.jpg
+
+# Sports2D generated files
+*_Sports2D/
+*_Sports2D_*/
+
+# Configuration files with sensitive data
+config_local.toml
+secrets.toml 

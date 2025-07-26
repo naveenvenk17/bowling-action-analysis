@@ -1,0 +1,81 @@
+# Cricket Analysis System Configuration
+
+[sports2d]
+# Sports2D pose estimation settings
+nb_persons_to_detect = 1
+person_ordering_method = "highest_likelihood"
+first_person_height = 1.75  # meters
+pose_model = "HALPE_26"  # Options: HALPE_26, COCO, etc.
+mode = "balanced"  # Options: fast, balanced, accurate
+det_frequency = 4  # Detection frequency for tracking
+
+[yolo]
+# YOLO release point detection settings
+confidence_threshold = 0.25
+model_path = ""  # Leave empty to use default YOLOv8n model
+# model_path = "path/to/custom/yolo/model.pt"  # Custom model path
+
+[processing]
+# Video processing options
+save_vid = true  # Save processed video with pose overlay
+save_img = true  # Save individual frame images
+save_pose = true  # Save pose estimation data
+calculate_angles = true  # Calculate joint and segment angles
+save_angles = true  # Save angle measurements to file
+show_realtime_results = false  # Display results during processing (slower)
+make_c3d = true  # Generate C3D files for biomechanical analysis
+
+[output]
+# Output settings
+default_output_dir = "analysis_output"
+csv_filename = "release_point_analysis.csv"
+
+# Advanced settings (optional)
+[advanced]
+# These settings are for advanced users and specific use cases
+
+[advanced.pose_detection]
+# Fine-tune pose detection parameters
+keypoint_likelihood_threshold = 0.1
+average_likelihood_threshold = 0.3
+keypoint_number_threshold = 0.1
+
+[advanced.filtering]
+# Post-processing filters for smoother data
+interpolate = true
+interp_gap_smaller_than = 10
+filter_type = "butterworth"  # Options: butterworth, gaussian, loess, median
+butterworth_order = 4
+butterworth_cutoff_frequency = 6
+
+[advanced.video_processing]
+# Video processing parameters
+input_size = [1280, 720]  # Input resolution for processing
+slowmo_factor = 1  # Slow motion factor (1 = normal speed)
+
+# Example profiles for different use cases
+[profiles.fast]
+# Quick analysis profile
+sports2d.mode = "fast"
+sports2d.det_frequency = 8
+processing.save_img = false
+processing.show_realtime_results = false
+
+[profiles.accurate]
+# High accuracy analysis profile
+sports2d.mode = "accurate"
+sports2d.det_frequency = 2
+yolo.confidence_threshold = 0.15
+processing.save_img = true
+advanced.filtering.butterworth_cutoff_frequency = 4
+
+[profiles.research]
+# Research-grade analysis with all features
+sports2d.mode = "accurate"
+sports2d.det_frequency = 1
+processing.save_vid = true
+processing.save_img = true
+processing.save_pose = true
+processing.calculate_angles = true
+processing.make_c3d = true
+advanced.filtering.interpolate = true 
