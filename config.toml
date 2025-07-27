@@ -8,6 +8,7 @@ first_person_height = 1.75  # meters
 pose_model = "HALPE_26"  # Options: HALPE_26, COCO, etc.
 mode = "balanced"  # Options: fast, balanced, accurate
 det_frequency = 4  # Detection frequency for tracking
+use_gpu = true  # Enable GPU acceleration for faster processing
 
 [yolo]
 # YOLO release point detection settings
@@ -24,6 +25,7 @@ calculate_angles = true  # Calculate joint and segment angles
 save_angles = true  # Save angle measurements to file
 show_realtime_results = false  # Display results during processing (slower)
 make_c3d = true  # Generate C3D files for biomechanical analysis
+flip_left_right = false  # Set to false to avoid frame of reference issues when person changes stance
 
 [output]
 # Output settings

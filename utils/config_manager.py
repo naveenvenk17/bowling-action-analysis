@@ -64,6 +64,7 @@ class ConfigManager:
             pose_model=sports2d_config.get('pose_model', 'HALPE_26'),
             mode=sports2d_config.get('mode', 'balanced'),
             det_frequency=sports2d_config.get('det_frequency', 4),
+            use_gpu=sports2d_config.get('use_gpu', True),
 
             # YOLO settings
             yolo_confidence_threshold=yolo_config.get(
@@ -79,6 +80,7 @@ class ConfigManager:
             show_realtime_results=processing_config.get(
                 'show_realtime_results', False),
             make_c3d=processing_config.get('make_c3d', True),
+            flip_left_right=processing_config.get('flip_left_right', False),
         )
 
     def _get_default_config(self) -> Dict[str, Any]:
@@ -90,7 +92,8 @@ class ConfigManager:
                 'first_person_height': 1.75,
                 'pose_model': 'HALPE_26',
                 'mode': 'balanced',
-                'det_frequency': 4
+                'det_frequency': 4,
+                'use_gpu': True
             },
             'yolo': {
                 'confidence_threshold': 0.25,
@@ -103,7 +106,8 @@ class ConfigManager:
                 'calculate_angles': True,
                 'save_angles': True,
                 'show_realtime_results': False,
-                'make_c3d': True
+                'make_c3d': True,
+                'flip_left_right': False
             },
             'output': {
                 'default_output_dir': 'analysis_output',

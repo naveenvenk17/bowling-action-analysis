@@ -197,7 +197,13 @@ class CricketAnalysisUI:
             Path(path).stem for path in st.session_state.selected_videos]
         current_video_name = video_names[st.session_state.current_video_index]
 
-        st.subheader(f"Video: {current_video_name}")
+        # Header with debug toggle
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            st.subheader(f"Video: {current_video_name}")
+        with col2:
+            st.session_state.debug_mode = st.checkbox(
+                "Debug Mode", value=st.session_state.get('debug_mode', False))
 
         # Get current frame
         frame = self._get_current_frame()
@@ -210,7 +216,12 @@ class CricketAnalysisUI:
                 use_container_width=True
             )
         else:
-            st.error("Could not load frame. Please check video file integrity.")
+            st.error(
+                "⚠️ Could not load frame. Enable Debug Mode for detailed diagnostics.")
+
+            # Offer troubleshooting options
+            if st.button("🔧 Run Video Diagnostics"):
+                self._run_video_diagnostics(current_video_name)
 
     def _render_control_panel(self):
         """Render the control panel for frame navigation and release point setting."""
@@ -301,23 +312,61 @@ class CricketAnalysisUI:
             st.session_state.current_frame_index = 0
 
     def _get_current_frame(self):
-        """Get the current frame for display."""
+        """Get the current frame for display with improved error handling."""
         current_video_path = st.session_state.selected_videos[st.session_state.current_video_index]
         video_names = [
             Path(path).stem for path in st.session_state.selected_videos]
         current_video_name = video_names[st.session_state.current_video_index]
 
+        # Debug information
+        if st.session_state.get('debug_mode', False):
+            st.write(
+                f"🔍 Debug: Getting frame {st.session_state.current_frame_index} from {current_video_name}")
+
+        # Validate frame index first
+        video_info = self._get_video_info(current_video_name)
+        if video_info is None:
+            if st.session_state.get('debug_mode', False):
+                st.error(f"Could not get video info for {current_video_name}")
+            return None
+
+        if st.session_state.current_frame_index >= video_info.frame_count:
+            if st.session_state.get('debug_mode', False):
+                st.error(
+                    f"Frame index {st.session_state.current_frame_index} exceeds video frame count {video_info.frame_count}")
+            # Reset to last valid frame
+            st.session_state.current_frame_index = max(
+                0, video_info.frame_count - 1)
+
         # Try analyzed video first
         if current_video_name in st.session_state.analyzer.analysis_results:
-            analyzed_path = st.session_state.analyzer.analysis_results[
-                current_video_name].analyzed_path
-            frame = st.session_state.analyzer.get_frame_at_index(
-                analyzed_path, st.session_state.current_frame_index)
-            if frame is not None:
-                return frame
+            analysis_result = st.session_state.analyzer.analysis_results[current_video_name]
+            if analysis_result is not None and hasattr(analysis_result, 'analyzed_path'):
+                analyzed_path = analysis_result.analyzed_path
+                if analyzed_path and Path(analyzed_path).exists():
+                    frame = st.session_state.analyzer.get_frame_at_index(
+                        analyzed_path, st.session_state.current_frame_index)
+                    if frame is not None:
+                        return frame
+                    elif st.session_state.get('debug_mode', False):
+                        st.warning(
+                            f"Could not read frame from analyzed video: {analyzed_path}")
+            elif st.session_state.get('debug_mode', False):
+                st.warning(
+                    f"Analysis result is None or invalid for {current_video_name}")
 
         # Fallback to original video
-        return st.session_state.analyzer.get_frame_at_index(current_video_path, st.session_state.current_frame_index)
+        frame = st.session_state.analyzer.get_frame_at_index(
+            current_video_path, st.session_state.current_frame_index)
+
+        if frame is None and st.session_state.get('debug_mode', False):
+            # Show detailed diagnostic information
+            validation = st.session_state.analyzer.validate_frame_access(
+                current_video_path, st.session_state.current_frame_index)
+            st.error("Frame loading failed - Diagnostic info:")
+            st.json(validation)
+
+        return frame
 
     def _get_video_info(self, video_name):
         """Get cached video info."""
@@ -333,6 +382,84 @@ class CricketAnalysisUI:
                     video_path)
 
         return st.session_state.video_info_cache.get(video_name)
+
+    def _run_video_diagnostics(self, video_name):
+        """Run comprehensive video diagnostics."""
+        # Find video path
+        video_path = None
+        for path in st.session_state.selected_videos:
+            if Path(path).stem == video_name:
+                video_path = path
+                break
+
+        if not video_path:
+            st.error(f"Could not find video path for {video_name}")
+            return
+
+        st.write("🔍 Running video diagnostics...")
+
+        # Basic file checks
+        file_exists = Path(video_path).exists()
+        file_size = Path(video_path).stat().st_size if file_exists else 0
+
+        st.write(f"📁 **File Status:**")
+        st.write(f"   - Exists: {'✅' if file_exists else '❌'}")
+        st.write(
+            f"   - Size: {file_size:,} bytes ({file_size/1024/1024:.2f} MB)")
+        st.write(f"   - Path: `{video_path}`")
+
+        if not file_exists:
+            st.error("Video file does not exist!")
+            return
+
+        # Video info
+        video_info = st.session_state.analyzer.get_video_info(video_path)
+        if video_info:
+            st.write(f"🎬 **Video Properties:**")
+            st.write(f"   - Frame count: {video_info.frame_count}")
+            st.write(f"   - FPS: {video_info.fps:.2f}")
+            st.write(f"   - Duration: {video_info.duration:.2f} seconds")
+        else:
+            st.error("Could not read video properties!")
+            return
+
+        # Frame access test
+        current_frame = st.session_state.current_frame_index
+        validation = st.session_state.analyzer.validate_frame_access(
+            video_path, current_frame)
+
+        st.write(f"🎯 **Frame Access Test (Frame {current_frame}):**")
+        st.write(
+            f"   - Video exists: {'✅' if validation['video_exists'] else '❌'}")
+        st.write(
+            f"   - Video openable: {'✅' if validation['video_openable'] else '❌'}")
+        st.write(
+            f"   - Frame index valid: {'✅' if validation['frame_index_valid'] else '❌'}")
+        st.write(
+            f"   - Frame readable: {'✅' if validation['frame_readable'] else '❌'}")
+
+        if not validation['valid']:
+            st.error(f"❌ {validation['error_message']}")
+        else:
+            st.success("✅ Frame access is working correctly!")
+
+        # Test multiple frames
+        st.write("🎲 **Random Frame Test:**")
+        test_frames = [0, video_info.frame_count//4, video_info.frame_count//2,
+                       3*video_info.frame_count//4, video_info.frame_count-1]
+
+        success_count = 0
+        for frame_idx in test_frames:
+            if frame_idx < video_info.frame_count:
+                test_validation = st.session_state.analyzer.validate_frame_access(
+                    video_path, frame_idx)
+                status = "✅" if test_validation['valid'] else "❌"
+                st.write(f"   - Frame {frame_idx}: {status}")
+                if test_validation['valid']:
+                    success_count += 1
+
+        st.write(
+            f"**Result:** {success_count}/{len(test_frames)} frames accessible")
 
     def _display_video_info(self, video_name):
         """Display video information in sidebar."""

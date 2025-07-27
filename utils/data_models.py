@@ -39,10 +39,10 @@ class VideoInfo:
 class AnalysisResult:
     """Result of video analysis."""
     video_name: str
-    original_path: str
-    analyzed_path: str
-    angles_file: str
     result_dir: str
+    analyzed_path: Optional[str] = None
+    angles_file: Optional[str] = None
+    success: bool = False
     suggested_release_frame: Optional[int] = None
     manual_release_frame: Optional[int] = None
 
@@ -90,6 +90,7 @@ class AnalysisConfig:
     pose_model: str = 'HALPE_26'
     mode: str = 'balanced'
     det_frequency: int = 4
+    use_gpu: bool = True
 
     # YOLO Configuration
     yolo_confidence_threshold: float = 0.25
@@ -105,6 +106,9 @@ class AnalysisConfig:
     # Output Configuration
     show_realtime_results: bool = False
     make_c3d: bool = True
+
+    # Angle Configuration
+    flip_left_right: bool = False  # Set to false to avoid frame of reference issues
 
     def to_sports2d_config(self, video_path: str, result_dir: str) -> Dict[str, Any]:
         """Convert to Sports2D configuration format."""
@@ -134,8 +138,8 @@ class AnalysisConfig:
                 'pose_model': self.pose_model,
                 'mode': self.mode,
                 'det_frequency': self.det_frequency,
-                'device': 'auto',
-                'backend': 'auto',
+                'device': 'cuda' if self.use_gpu else 'cpu',
+                'backend': 'onnxruntime' if self.use_gpu else 'auto',
                 'tracking_mode': 'sports2d',
                 'keypoint_likelihood_threshold': 0.1,
                 'average_likelihood_threshold': 0.3,
@@ -158,7 +162,7 @@ class AnalysisConfig:
                 'segment_angles': ['Right foot', 'Left foot', 'Right shank', 'Left shank',
                                    'Right thigh', 'Left thigh', 'Trunk', 'Right arm', 'Left arm',
                                    'Right forearm', 'Left forearm'],
-                'flip_left_right': True,
+                'flip_left_right': self.flip_left_right,
                 'correct_segment_angles_with_floor_angle': True
             },
             'post-processing': {
