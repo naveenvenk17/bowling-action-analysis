@@ -9,6 +9,9 @@ import numpy as np
 from pathlib import Path
 import tempfile
 import os
+import math
+from PIL import Image
+import io
 
 from core.analyzer import CricketAnalyzer
 
@@ -36,6 +39,8 @@ class CricketAnalysisUI:
             st.session_state.current_frame_index = 0
         if 'video_info_cache' not in st.session_state:
             st.session_state.video_info_cache = {}
+        if 'collage_data' not in st.session_state:
+            st.session_state.collage_data = None
 
     def run(self):
         """Main UI entry point."""
@@ -55,10 +60,18 @@ class CricketAnalysisUI:
             self._video_selection_page()
         elif st.session_state.page == 'analysis':
             self._frame_analysis_page()
+        elif st.session_state.page == 'collage':
+            self._collage_page()
 
     def _video_selection_page(self):
         """Video selection and analysis initiation page."""
         st.header("Step 1: Select Videos for Analysis")
+
+        # Option to load existing results
+        with st.expander("🔄 Load Existing Analysis Results (for testing)"):
+            st.info("Load pre-existing analysis results from bowl1-bowl9 directories")
+            if st.button("Load Existing Bowl Analysis Results"):
+                self._load_existing_results()
 
         with st.container():
             st.info("Upload 2-10 cricket bowling videos for analysis. The system will analyze each video using AI pose estimation and suggest optimal release points.")
@@ -137,6 +150,25 @@ class CricketAnalysisUI:
         st.success(
             "Analysis completed successfully! Redirecting to frame analysis...")
         st.rerun()
+
+    def _load_existing_results(self):
+        """Load existing analysis results from bowl directories."""
+        with st.spinner("Loading existing analysis results..."):
+            results = st.session_state.analyzer.load_existing_analysis_results()
+
+            if results:
+                # Create dummy video paths for existing results
+                st.session_state.selected_videos = [
+                    f"{name}.mp4" for name in results.keys()]
+                st.session_state.analysis_complete = True
+                st.session_state.page = 'analysis'
+
+                st.success(f"Loaded {len(results)} existing analysis results!")
+                st.info("Transitioning to frame analysis page...")
+                st.rerun()
+            else:
+                st.error(
+                    "No existing analysis results found. Make sure bowl1-bowl9 directories exist.")
 
     def _frame_analysis_page(self):
         """Frame analysis and release point selection page."""
@@ -279,17 +311,19 @@ class CricketAnalysisUI:
             st.success(f"Release point set at frame {frame_index}")
             st.rerun()
 
-        # CSV Generation
+        # Generate Analysis - Updated to go to collage page
         st.markdown("---")
-        st.subheader("Export Results")
+        st.subheader("Generate Analysis")
 
         release_count = len(st.session_state.analyzer.release_frames)
 
         if release_count > 0:
             st.info(f"{release_count} release points set")
 
-            if st.button("Generate CSV Analysis", type="secondary", use_container_width=True):
-                self._generate_and_download_csv()
+            if st.button("Generate Analysis", type="secondary", use_container_width=True):
+                self._generate_collage_data()
+                st.session_state.page = 'collage'
+                st.rerun()
         else:
             st.warning("No release points set yet")
 
@@ -518,6 +552,318 @@ class CricketAnalysisUI:
                 st.success("CSV analysis generated successfully!")
             else:
                 st.error("Failed to generate CSV analysis")
+
+    def _collage_page(self):
+        """Display the collage of release point frames."""
+        if not st.session_state.collage_data:
+            st.error(
+                "No collage data available. Please return to analysis and generate the collage.")
+            if st.button("Back to Analysis"):
+                st.session_state.page = 'analysis'
+                st.rerun()
+            return
+
+        st.header("Release Point Analysis Collage")
+
+        # Navigation buttons
+        col1, col2, col3 = st.columns([1, 2, 1])
+        with col1:
+            if st.button("← Back to Analysis"):
+                st.session_state.page = 'analysis'
+                st.rerun()
+
+        with col3:
+            # Download buttons
+            col3a, col3b = st.columns(2)
+            with col3a:
+                if st.button("📥 Download Image"):
+                    self._download_collage_image()
+            with col3b:
+                if st.button("📄 Download CSV"):
+                    self._generate_and_download_csv()
+
+        st.markdown("---")
+
+        # Display collage
+        collage_data = st.session_state.collage_data
+        if collage_data['frames']:
+            self._display_collage(
+                collage_data['frames'], collage_data['metadata'])
+        else:
+            st.warning("No frames available for collage")
+
+    def _generate_collage_data(self):
+        """Generate data for the collage from release points."""
+        collage_frames = []
+        metadata = []
+
+        with st.spinner("Generating collage data..."):
+            for video_name, frame_index in st.session_state.analyzer.release_frames.items():
+                frame_data = self._extract_release_frame(
+                    video_name, frame_index)
+                if frame_data:
+                    collage_frames.append(frame_data['frame'])
+                    metadata.append({
+                        'video_name': video_name,
+                        'frame_index': frame_index,
+                        'timestamp': frame_data.get('timestamp')
+                    })
+
+        st.session_state.collage_data = {
+            'frames': collage_frames,
+            'metadata': metadata
+        }
+
+    def _extract_release_frame(self, video_name, frame_index):
+        """Extract and process a specific release frame."""
+        try:
+            # First try to load from existing analyzed frame images (bowl directories)
+            if video_name in st.session_state.analyzer.analysis_results:
+                analysis_result = st.session_state.analyzer.analysis_results[video_name]
+                if analysis_result and analysis_result.result_dir:
+                    # Look for existing frame images in the Sports2D img directory
+                    img_dir = Path(analysis_result.result_dir) / \
+                        f"{Path(analysis_result.result_dir).name}_img"
+
+                    if img_dir.exists():
+                        # Find the frame image file - Sports2D uses 6-digit zero-padded frame numbers
+                        frame_filename = f"{Path(analysis_result.result_dir).name}_{frame_index:06d}.png"
+                        frame_path = img_dir / frame_filename
+
+                        if frame_path.exists():
+                            # Load the existing frame image (already has pose overlay)
+                            frame = cv2.imread(str(frame_path))
+                            if frame is not None:
+                                processed_frame = self._process_frame_for_collage(
+                                    frame)
+                                return {
+                                    'frame': processed_frame,
+                                    'timestamp': self._calculate_timestamp(frame_index, video_name),
+                                    'source': 'analyzed_image'
+                                }
+                        else:
+                            print(f"Frame image not found: {frame_path}")
+
+            # Fallback: try to get frame from analyzed video if available
+            if video_name in st.session_state.analyzer.analysis_results:
+                analysis_result = st.session_state.analyzer.analysis_results[video_name]
+                if analysis_result and analysis_result.analyzed_path:
+                    frame = st.session_state.analyzer.get_frame_at_index(
+                        analysis_result.analyzed_path, frame_index)
+                    if frame is not None:
+                        processed_frame = self._process_frame_for_collage(
+                            frame)
+                        return {
+                            'frame': processed_frame,
+                            'timestamp': self._calculate_timestamp(frame_index, video_name),
+                            'source': 'analyzed_video'
+                        }
+
+            # Final fallback: try original video
+            video_path = None
+            for path in st.session_state.selected_videos:
+                if Path(path).stem == video_name:
+                    video_path = path
+                    break
+
+            if video_path:
+                frame = st.session_state.analyzer.get_frame_at_index(
+                    video_path, frame_index)
+                if frame is not None:
+                    processed_frame = self._process_frame_for_collage(frame)
+                    return {
+                        'frame': processed_frame,
+                        'timestamp': self._calculate_timestamp(frame_index, video_name),
+                        'source': 'original_video'
+                    }
+
+        except Exception as e:
+            st.error(f"Error extracting frame for {video_name}: {e}")
+
+        return None
+
+    def _process_frame_for_collage(self, frame):
+        """Process frame to highlight person in blue square."""
+        try:
+            # Try to use the release point detector for person detection
+            from utils.release_point_detector import ReleasePointDetector
+
+            if hasattr(st.session_state.analyzer, 'release_detector') and st.session_state.analyzer.release_detector.model:
+                # Use YOLO to detect person
+                detector = st.session_state.analyzer.release_detector
+
+                # Save frame temporarily for YOLO detection
+                temp_path = "temp_frame_for_detection.jpg"
+                cv2.imwrite(temp_path, frame)
+
+                # Detect objects
+                detection_results = detector._detect_objects_standard(
+                    temp_path)
+
+                # Clean up temp file
+                if Path(temp_path).exists():
+                    Path(temp_path).unlink()
+
+                # Process person detections
+                if detection_results['persons']:
+                    # Use the highest confidence person
+                    person = detection_results['persons'][0]
+                    bbox = person['bbox']
+
+                    # Draw blue rectangle around person
+                    x1, y1, x2, y2 = [int(coord) for coord in bbox]
+
+                    # Create a copy of the frame
+                    processed_frame = frame.copy()
+
+                    # Draw blue rectangle
+                    cv2.rectangle(processed_frame, (x1, y1),
+                                  (x2, y2), (255, 0, 0), 3)  # Blue in BGR
+
+                    # Add confidence text
+                    confidence_text = f"Person: {person['confidence']:.2f}"
+                    cv2.putText(processed_frame, confidence_text, (x1, y1-10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 0, 0), 2)
+
+                    return processed_frame
+
+        except Exception as e:
+            print(f"Error in person detection: {e}")
+
+        # Return original frame if detection fails
+        return frame
+
+    def _calculate_timestamp(self, frame_index, video_name):
+        """Calculate timestamp for frame."""
+        video_info = self._get_video_info(video_name)
+        if video_info and video_info.fps > 0:
+            return frame_index / video_info.fps
+        return None
+
+    def _display_collage(self, frames, metadata):
+        """Display frames in a dynamic grid layout."""
+        num_frames = len(frames)
+        if num_frames == 0:
+            return
+
+        # Calculate optimal grid dimensions
+        if num_frames <= 2:
+            cols = num_frames
+            rows = 1
+        elif num_frames <= 6:
+            cols = 3
+            rows = math.ceil(num_frames / 3)
+        else:
+            cols = 4
+            rows = math.ceil(num_frames / 4)
+
+        st.subheader(f"Release Point Frames ({num_frames} frames)")
+
+        # Display frames in grid
+        for row in range(rows):
+            columns = st.columns(cols)
+            for col in range(cols):
+                frame_idx = row * cols + col
+                if frame_idx < num_frames:
+                    with columns[col]:
+                        frame = frames[frame_idx]
+                        meta = metadata[frame_idx]
+
+                        # Convert frame to RGB for display
+                        if len(frame.shape) == 3 and frame.shape[2] == 3:
+                            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                        else:
+                            frame_rgb = frame
+
+                        st.image(
+                            frame_rgb,
+                            caption=f"{meta['video_name']}\nFrame: {meta['frame_index']}" +
+                            (f"\nTime: {meta['timestamp']:.2f}s" if meta['timestamp'] else ""),
+                            use_container_width=True
+                        )
+
+    def _download_collage_image(self):
+        """Generate and download the collage as a single image."""
+        if not st.session_state.collage_data or not st.session_state.collage_data['frames']:
+            st.error("No collage data available")
+            return
+
+        try:
+            frames = st.session_state.collage_data['frames']
+            metadata = st.session_state.collage_data['metadata']
+
+            # Create collage image
+            collage_image = self._create_collage_image(frames, metadata)
+
+            # Convert to PIL Image
+            if len(collage_image.shape) == 3 and collage_image.shape[2] == 3:
+                collage_pil = Image.fromarray(
+                    cv2.cvtColor(collage_image, cv2.COLOR_BGR2RGB))
+            else:
+                collage_pil = Image.fromarray(collage_image)
+
+            # Save to bytes buffer
+            img_buffer = io.BytesIO()
+            collage_pil.save(img_buffer, format='PNG')
+            img_data = img_buffer.getvalue()
+
+            # Download button
+            st.download_button(
+                label="Download Collage Image",
+                data=img_data,
+                file_name="release_point_collage.png",
+                mime="image/png",
+                use_container_width=True
+            )
+            st.success("Collage image ready for download!")
+
+        except Exception as e:
+            st.error(f"Error creating collage image: {e}")
+
+    def _create_collage_image(self, frames, metadata):
+        """Create a single collage image from frames."""
+        num_frames = len(frames)
+        if num_frames == 0:
+            return np.zeros((100, 100, 3), dtype=np.uint8)
+
+        # Calculate grid dimensions
+        if num_frames <= 2:
+            cols = num_frames
+            rows = 1
+        elif num_frames <= 6:
+            cols = 3
+            rows = math.ceil(num_frames / 3)
+        else:
+            cols = 4
+            rows = math.ceil(num_frames / 4)
+
+        # Get frame dimensions (assume all frames are same size)
+        frame_height, frame_width = frames[0].shape[:2]
+
+        # Create collage canvas
+        collage_height = rows * frame_height
+        collage_width = cols * frame_width
+        collage = np.zeros((collage_height, collage_width, 3), dtype=np.uint8)
+
+        # Place frames in collage
+        for i, frame in enumerate(frames):
+            row = i // cols
+            col = i % cols
+
+            y_start = row * frame_height
+            y_end = y_start + frame_height
+            x_start = col * frame_width
+            x_end = x_start + frame_width
+
+            # Ensure frame is 3-channel
+            if len(frame.shape) == 2:
+                frame = cv2.cvtColor(frame, cv2.COLOR_GRAY2BGR)
+            elif frame.shape[2] == 4:
+                frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
+
+            collage[y_start:y_end, x_start:x_end] = frame
+
+        return collage
 
     def _reset_session(self):
         """Reset session state and return to video selection."""

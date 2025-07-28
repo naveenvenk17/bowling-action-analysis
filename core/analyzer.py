@@ -301,3 +301,60 @@ class CricketAnalyzer:
         print(f"  Angles files: {len(exported['angles_files'])}")
 
         return exported
+
+    def load_existing_analysis_results(self, base_dir: str = ".") -> Dict[str, AnalysisResult]:
+        """
+        Load existing analysis results from bowl directories.
+
+        Args:
+            base_dir: Base directory to search for bowl* directories
+
+        Returns:
+            Dictionary of loaded analysis results
+        """
+        base_path = Path(base_dir)
+        loaded_results = {}
+
+        # Look for bowl* directories
+        bowl_dirs = list(base_path.glob("bowl*"))
+
+        for bowl_dir in bowl_dirs:
+            if bowl_dir.is_dir():
+                try:
+                    # Look for Sports2D subdirectory
+                    sports2d_dirs = list(bowl_dir.glob("*_Sports2D"))
+
+                    if sports2d_dirs:
+                        sports2d_dir = sports2d_dirs[0]
+                        video_name = bowl_dir.name
+
+                        # Find the analyzed video file
+                        analyzed_video = sports2d_dir / \
+                            f"{sports2d_dir.name}.mp4"
+
+                        # Find the angles file
+                        angles_files = list(
+                            sports2d_dir.glob("*_angles_person00.mot"))
+                        angles_file = angles_files[0] if angles_files else None
+
+                        # Create analysis result
+                        result = AnalysisResult(
+                            video_name=video_name,
+                            result_dir=str(sports2d_dir),
+                            analyzed_path=str(
+                                analyzed_video) if analyzed_video.exists() else None,
+                            angles_file=str(
+                                angles_file) if angles_file and angles_file.exists() else None,
+                            success=True
+                        )
+
+                        loaded_results[video_name] = result
+                        self.analysis_results[video_name] = result
+
+                        print(f"Loaded existing analysis for {video_name}")
+
+                except Exception as e:
+                    print(f"Error loading analysis for {bowl_dir.name}: {e}")
+
+        print(f"Loaded {len(loaded_results)} existing analysis results")
+        return loaded_results

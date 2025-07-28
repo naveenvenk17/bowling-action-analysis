@@ -1,33 +1,13 @@
 Important 
 
-1 - Get Real World data
-2 - Frame of Reference is not consistent [cummmins4 - 65 , cummins5-310]
+1 - Get Real World data - Done
+2 - Frame of Reference is not consistent [cummmins4 - 65 , cummins5-310] - Done
+3 - make a collage - Done
+4 - fix ball identifier - Pending
 
-3 - make a collage - fix ball identifier
+5 - Dynamic Time Warping - instead of identifying release point. 
 
-
-🚀 Implementation Priority
-
-Phase 1 (High Impact, Low Effort)
-
-Consistency Analyzer - Core missing functionality
-Enhanced UI - Better visualization and user experience
-Progress Tracking - Session management and historical data
-
-Phase 2 (Medium Impact, Medium Effort)
-
-Recommendation Engine - Actionable insights
-Advanced Metrics - More detailed biomechanical analysis
-Export Features - Better reporting and sharing
-
-Phase 3 (High Impact, High Effort)
-
-Mobile App - On-field analysis
-AI Improvements - Custom models and real-time processing
-Social Features - Community and competition
-
-
-
+6 - ai for summary analysis
 
 How to show result 
 
