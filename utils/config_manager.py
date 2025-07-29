@@ -131,7 +131,7 @@ class ConfigManager:
                 'person_ordering_method': 'highest_likelihood',
                 'first_person_height': 1.75,
                 'pose_model': 'HALPE_26',
-                'mode': 'performance',  # 'lightweight', 'balanced', 'performance'
+                'mode': 'balanced',  # 'lightweight', 'balanced', 'performance'
                 'det_frequency': 4,
                 'use_gpu': True
             },
