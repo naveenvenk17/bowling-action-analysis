@@ -1,6 +1,37 @@
+#!/usr/bin/env python3
 """
-Video analysis utilities for Cricket Analysis System.
-Complementary tools for video processing and analysis.
+Cricket Analysis System - Advanced Video Analysis Utilities
+
+This module provides advanced video processing and motion analysis utilities
+for the Cricket Analysis System. It includes classes and methods for:
+
+- Motion pattern detection and analysis
+- Bowling phase identification (approach, delivery, release, follow-through)
+- Key frame extraction from bowling actions
+- Multi-video comparison and similarity analysis
+- Motion intensity tracking and dominant motion frame detection
+- Background subtraction for motion analysis
+
+Classes:
+    VideoAnalysisHelper: Static methods for advanced video analysis
+    VideoComparator: Compare multiple videos for bowling action analysis
+
+Dependencies:
+    - OpenCV (cv2): Video processing and background subtraction
+    - NumPy: Numerical operations and statistical analysis
+    - pathlib: Path handling
+    - json: Data serialization
+    - collections: Data structures
+
+Usage:
+    Can be run as a standalone module for testing:
+    python utils/analyse_video.py --test-video path/to/video.mp4
+    
+    Or imported and used programmatically:
+    from utils.analyse_video import VideoAnalysisHelper, VideoComparator
+    
+Author: Cricket Analysis System
+Version: 1.0
 """
 
 import cv2
@@ -9,6 +40,8 @@ from pathlib import Path
 from typing import List, Dict, Tuple, Optional, Any
 import json
 from collections import defaultdict
+import argparse
+import sys
 
 from .analyse_image import FrameExtractor, ImageProcessor
 
@@ -343,3 +376,288 @@ class VideoComparator:
             json.dump(report, f, indent=2, default=str)
 
         return output_path
+
+
+if __name__ == "__main__":
+    """
+    Test the video analysis utilities with command-line arguments.
+
+    Usage examples:
+    python utils/analyse_video.py --test-video input/video/set1/sample.mp4
+    python utils/analyse_video.py --compare-videos video1.mp4 video2.mp4
+    python utils/analyse_video.py --help
+    """
+    parser = argparse.ArgumentParser(
+        description="Test Cricket Analysis Video Processing Utilities",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python utils/analyse_video.py --test-video input/video/set1/sample.mp4
+  python utils/analyse_video.py --compare-videos video1.mp4 video2.mp4 video3.mp4
+  python utils/analyse_video.py --analyze-phases input/video/bowling.mp4
+  python utils/analyse_video.py --create-test-video
+        """
+    )
+
+    parser.add_argument('--test-video', type=str,
+                        help='Test motion analysis with specified video file')
+    parser.add_argument('--compare-videos', nargs='+',
+                        help='Compare motion patterns across multiple videos')
+    parser.add_argument('--analyze-phases', type=str,
+                        help='Analyze bowling phases in specified video')
+    parser.add_argument('--create-test-video', action='store_true',
+                        help='Create a sample test video for demonstration')
+    parser.add_argument('--output-dir', type=str, default='test_output',
+                        help='Output directory for test results (default: test_output)')
+    parser.add_argument('--roi', type=int, nargs=4, metavar=('X', 'Y', 'W', 'H'),
+                        help='Region of interest for motion analysis (x y width height)')
+
+    args = parser.parse_args()
+
+    # Create output directory
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(exist_ok=True)
+
+    print("🏏 Testing Cricket Analysis Video Processing Utilities")
+    print("=" * 65)
+
+    try:
+        # Test 1: Single Video Motion Analysis
+        if args.test_video:
+            print(f"\n🎥 Testing Motion Analysis with: {args.test_video}")
+
+            if not Path(args.test_video).exists():
+                print(f"❌ Error: Video file not found: {args.test_video}")
+                sys.exit(1)
+
+            # Convert ROI to tuple if provided
+            roi = tuple(args.roi) if args.roi else None
+            if roi:
+                print(
+                    f"   Using ROI: x={roi[0]}, y={roi[1]}, w={roi[2]}, h={roi[3]}")
+
+            # Analyze motion patterns
+            print("   🔧 Analyzing motion patterns...")
+            motion_data = VideoAnalysisHelper.detect_motion_patterns(
+                args.test_video, roi=roi
+            )
+
+            print(f"   ✅ Motion analysis completed!")
+            print(
+                f"   📊 Total frames analyzed: {len(motion_data['frame_motion'])}")
+            print(
+                f"   📈 Max motion intensity: {motion_data['max_motion_intensity']:.4f}")
+            print(
+                f"   🎯 Dominant motion frame: {motion_data['dominant_motion_frame']}")
+
+            # Save motion data
+            motion_file = output_dir / "motion_analysis.json"
+            with open(motion_file, 'w') as f:
+                json.dump(motion_data, f, indent=2, default=str)
+            print(f"   💾 Motion data saved: {motion_file}")
+
+            # Analyze bowling phases
+            print("   🔧 Analyzing bowling phases...")
+            extractor = FrameExtractor(args.test_video)
+            fps = extractor.get_fps()
+            phases = VideoAnalysisHelper.analyze_bowling_phases(
+                motion_data, fps)
+
+            print(f"   ✅ Phase analysis completed!")
+            for phase_name, frame_idx in phases.items():
+                if isinstance(frame_idx, int):
+                    timestamp = frame_idx / fps if fps > 0 else 0
+                    print(
+                        f"   🏏 {phase_name}: Frame {frame_idx} (t={timestamp:.2f}s)")
+
+            # Extract key frames
+            print("   🔧 Extracting key frames...")
+            key_frames_dir = output_dir / "key_frames"
+            saved_frames = VideoAnalysisHelper.extract_key_frames(
+                args.test_video, phases, str(key_frames_dir)
+            )
+
+            print(f"   ✅ Key frames extracted: {len(saved_frames)}")
+            for phase, path in saved_frames.items():
+                print(f"   🖼️  {phase}: {path}")
+
+        # Test 2: Video Comparison
+        if args.compare_videos:
+            print(
+                f"\n🔄 Testing Video Comparison with {len(args.compare_videos)} videos:")
+            for i, video in enumerate(args.compare_videos, 1):
+                print(f"   {i}. {video}")
+
+            # Check all videos exist
+            missing_videos = [
+                v for v in args.compare_videos if not Path(v).exists()]
+            if missing_videos:
+                print(f"❌ Error: Videos not found: {missing_videos}")
+                sys.exit(1)
+
+            # Create comparator
+            print("   🔧 Creating video comparator...")
+            comparator = VideoComparator(args.compare_videos)
+
+            # Compare motion patterns
+            print("   🔧 Comparing motion patterns...")
+            comparison = comparator.compare_motion_patterns()
+
+            print(f"   ✅ Comparison completed!")
+
+            # Display results
+            metrics = comparison['comparative_metrics']
+            similarities = comparison['similarity_scores']
+
+            print(f"   📊 Motion Intensity Comparison:")
+            for video, intensity in metrics['max_motion_intensities'].items():
+                print(f"      {video}: {intensity:.4f}")
+
+            print(f"   🔗 Similarity Scores:")
+            for pair, score in similarities.items():
+                print(f"      {pair}: {score:.3f}")
+
+            # Save comparison report
+            report_file = output_dir / "video_comparison_report.json"
+            report_path = comparator.generate_comparison_report(
+                str(report_file))
+            print(f"   💾 Comparison report saved: {report_path}")
+
+        # Test 3: Phase Analysis Only
+        if args.analyze_phases:
+            print(f"\n🎯 Testing Phase Analysis with: {args.analyze_phases}")
+
+            if not Path(args.analyze_phases).exists():
+                print(f"❌ Error: Video file not found: {args.analyze_phases}")
+                sys.exit(1)
+
+            # Analyze motion and phases
+            motion_data = VideoAnalysisHelper.detect_motion_patterns(
+                args.analyze_phases)
+            extractor = FrameExtractor(args.analyze_phases)
+            phases = VideoAnalysisHelper.analyze_bowling_phases(
+                motion_data, extractor.get_fps())
+
+            # Create detailed phase report
+            phase_report = {
+                'video_path': args.analyze_phases,
+                'fps': extractor.get_fps(),
+                'total_frames': extractor.get_frame_count(),
+                'motion_data': motion_data,
+                'phases': phases
+            }
+
+            phase_file = output_dir / "phase_analysis.json"
+            with open(phase_file, 'w') as f:
+                json.dump(phase_report, f, indent=2, default=str)
+            print(f"   💾 Phase analysis saved: {phase_file}")
+
+        # Test 4: Create Test Video
+        if args.create_test_video:
+            print("\n🛠️  Creating sample test video...")
+
+            # Create a simple test video with moving objects
+            test_video_path = output_dir / "sample_test_video.mp4"
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            writer = cv2.VideoWriter(
+                str(test_video_path), fourcc, 30.0, (640, 480))
+
+            # Create frames with moving circle (simulating bowling motion)
+            for frame_num in range(150):  # 5 seconds at 30fps
+                frame = np.zeros((480, 640, 3), dtype=np.uint8)
+
+                # Moving circle to simulate bowling action
+                x = int(50 + (frame_num * 4) % 540)  # Move horizontally
+                # Slight vertical motion
+                y = int(240 + 50 * np.sin(frame_num * 0.1))
+
+                # Draw person (rectangle) and ball (circle)
+                cv2.rectangle(frame, (x-20, y-40),
+                              (x+20, y+40), (0, 255, 0), -1)
+                cv2.circle(frame, (x+30, y), 8, (0, 0, 255), -1)
+
+                # Add frame number
+                cv2.putText(frame, f"Frame {frame_num}", (10, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+
+                writer.write(frame)
+
+            writer.release()
+            print(f"   ✅ Sample test video created: {test_video_path}")
+
+            # Test with created video
+            motion_data = VideoAnalysisHelper.detect_motion_patterns(
+                str(test_video_path))
+            print(f"   ✅ Motion analysis on test video completed!")
+            print(
+                f"   📊 Dominant motion frame: {motion_data['dominant_motion_frame']}")
+
+        # Default behavior if no arguments
+        if not any([args.test_video, args.compare_videos, args.analyze_phases, args.create_test_video]):
+            print("\n🎯 Running default tests...")
+
+            # Look for sample videos
+            sample_dirs = [Path("input/video/set1"), Path("input/video")]
+            sample_videos = []
+
+            for sample_dir in sample_dirs:
+                if sample_dir.exists():
+                    video_files = list(sample_dir.glob(
+                        "*.mp4")) + list(sample_dir.glob("*.avi"))
+                    # Take first 2 videos
+                    sample_videos.extend(video_files[:2])
+
+            if sample_videos:
+                print(
+                    f"   Found sample videos: {[str(v) for v in sample_videos]}")
+
+                # Test with first video
+                test_video = sample_videos[0]
+                motion_data = VideoAnalysisHelper.detect_motion_patterns(
+                    str(test_video))
+
+                motion_file = output_dir / "default_motion_analysis.json"
+                with open(motion_file, 'w') as f:
+                    json.dump(motion_data, f, indent=2, default=str)
+                print(f"   ✅ Default motion analysis saved: {motion_file}")
+
+                # If multiple videos, compare them
+                if len(sample_videos) > 1:
+                    comparator = VideoComparator(
+                        [str(v) for v in sample_videos])
+                    report_path = comparator.generate_comparison_report(
+                        str(output_dir / "default_comparison.json")
+                    )
+                    print(
+                        f"   ✅ Default comparison report saved: {report_path}")
+            else:
+                print("   No sample videos found, creating test video...")
+                # Create and test with synthetic video
+                test_video_path = output_dir / "default_test_video.mp4"
+                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+                writer = cv2.VideoWriter(
+                    str(test_video_path), fourcc, 30.0, (320, 240))
+
+                for i in range(60):  # 2 seconds
+                    frame = np.random.randint(
+                        0, 255, (240, 320, 3), dtype=np.uint8)
+                    writer.write(frame)
+                writer.release()
+
+                print(f"   ✅ Default test video created: {test_video_path}")
+
+        print(f"\n🎉 All tests completed successfully!")
+        print(f"📁 Check output directory: {output_dir}")
+        print("\n📖 Usage examples:")
+        print("   python utils/analyse_video.py --test-video input/video/sample.mp4")
+        print("   python utils/analyse_video.py --compare-videos video1.mp4 video2.mp4")
+        print("   python utils/analyse_video.py --create-test-video")
+
+    except KeyboardInterrupt:
+        print("\n⚠️  Tests interrupted by user")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n❌ Error during testing: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)

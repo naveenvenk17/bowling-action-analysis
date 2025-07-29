@@ -1,12 +1,43 @@
+#!/usr/bin/env python3
 """
-Image analysis utilities for Cricket Analysis System.
-Complementary tools for image processing and analysis.
+Cricket Analysis System - Image Processing Utilities
+
+This module provides standalone image processing and frame extraction utilities
+for the Cricket Analysis System. It includes classes and methods for:
+
+- Image quality enhancement using CLAHE (Contrast Limited Adaptive Histogram Equalization)
+- Aspect ratio preserving image resizing
+- Person region of interest extraction
+- Pose overlay visualization
+- Video frame extraction and processing
+- Frame saving with enhancement options
+
+Classes:
+    ImageProcessor: Static methods for image processing operations
+    FrameExtractor: Video frame extraction and processing utilities
+
+Dependencies:
+    - OpenCV (cv2): Image and video processing
+    - NumPy: Numerical operations
+    - pathlib: Path handling
+
+Usage:
+    Can be run as a standalone module for testing:
+    python utils/analyse_image.py --test-image path/to/image.jpg
+    
+    Or imported and used programmatically:
+    from utils.analyse_image import ImageProcessor, FrameExtractor
+    
+Author: Cricket Analysis System
+Version: 1.0
 """
 
 import cv2
 import numpy as np
 from pathlib import Path
 from typing import Tuple, Optional, Dict, Any
+import argparse
+import sys
 
 
 class ImageProcessor:
@@ -273,3 +304,208 @@ class FrameExtractor:
         """Clean up video capture."""
         if hasattr(self, 'cap'):
             self.cap.release()
+
+
+if __name__ == "__main__":
+    """
+    Test the image processing utilities with command-line arguments.
+
+    Usage examples:
+    python utils/analyse_image.py --test-image input/image/cummins1.png
+    python utils/analyse_video.py --test-video input/video/set1/sample.mp4
+    python utils/analyse_image.py --help
+    """
+    parser = argparse.ArgumentParser(
+        description="Test Cricket Analysis Image Processing Utilities",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python utils/analyse_image.py --test-image input/image/cummins1.png
+  python utils/analyse_image.py --test-video input/video/set1/sample.mp4
+  python utils/analyse_image.py --create-test-data
+        """
+    )
+
+    parser.add_argument('--test-image', type=str,
+                        help='Test image processing with specified image file')
+    parser.add_argument('--test-video', type=str,
+                        help='Test frame extraction with specified video file')
+    parser.add_argument('--create-test-data', action='store_true',
+                        help='Create sample test data for demonstration')
+    parser.add_argument('--output-dir', type=str, default='test_output',
+                        help='Output directory for test results (default: test_output)')
+
+    args = parser.parse_args()
+
+    # Create output directory
+    output_dir = Path(args.output_dir)
+    output_dir.mkdir(exist_ok=True)
+
+    print("🏏 Testing Cricket Analysis Image Processing Utilities")
+    print("=" * 60)
+
+    try:
+        # Test 1: Image Processing
+        if args.test_image:
+            print(f"\n📷 Testing Image Processing with: {args.test_image}")
+
+            if not Path(args.test_image).exists():
+                print(f"❌ Error: Image file not found: {args.test_image}")
+                sys.exit(1)
+
+            # Load image
+            image = cv2.imread(args.test_image)
+            if image is None:
+                print(f"❌ Error: Could not load image: {args.test_image}")
+                sys.exit(1)
+
+            print(f"   Original image shape: {image.shape}")
+
+            # Test image enhancement
+            print("   🔧 Testing image enhancement...")
+            enhanced = ImageProcessor.enhance_image_quality(image)
+            enhanced_path = output_dir / "enhanced_image.jpg"
+            cv2.imwrite(str(enhanced_path), enhanced)
+            print(f"   ✅ Enhanced image saved: {enhanced_path}")
+
+            # Test aspect ratio resize
+            print("   🔧 Testing aspect ratio resize...")
+            resized = ImageProcessor.resize_maintain_aspect_ratio(
+                image, (640, 480))
+            resized_path = output_dir / "resized_image.jpg"
+            cv2.imwrite(str(resized_path), resized)
+            print(f"   ✅ Resized image saved: {resized_path}")
+            print(f"   New image shape: {resized.shape}")
+
+            # Test pose overlay (with dummy keypoints)
+            print("   🔧 Testing pose overlay...")
+            dummy_keypoints = {
+                'left_shoulder': (100, 150),
+                'right_shoulder': (200, 150),
+                'left_elbow': (80, 200),
+                'right_elbow': (220, 200),
+                'left_wrist': (60, 250),
+                'right_wrist': (240, 250)
+            }
+            pose_overlay = ImageProcessor.create_pose_overlay(
+                resized, dummy_keypoints)
+            overlay_path = output_dir / "pose_overlay.jpg"
+            cv2.imwrite(str(overlay_path), pose_overlay)
+            print(f"   ✅ Pose overlay saved: {overlay_path}")
+
+        # Test 2: Video Frame Extraction
+        if args.test_video:
+            print(f"\n🎥 Testing Frame Extraction with: {args.test_video}")
+
+            if not Path(args.test_video).exists():
+                print(f"❌ Error: Video file not found: {args.test_video}")
+                sys.exit(1)
+
+            try:
+                # Initialize frame extractor
+                extractor = FrameExtractor(args.test_video)
+
+                print(f"   Video frame count: {extractor.get_frame_count()}")
+                print(f"   Video FPS: {extractor.get_fps():.2f}")
+
+                # Test single frame extraction
+                print("   🔧 Testing single frame extraction...")
+                frame_index = min(100, extractor.get_frame_count() // 2)
+                frame = extractor.extract_frame(frame_index)
+
+                if frame is not None:
+                    frame_path = output_dir / \
+                        f"extracted_frame_{frame_index:06d}.jpg"
+                    cv2.imwrite(str(frame_path), frame)
+                    print(f"   ✅ Frame {frame_index} saved: {frame_path}")
+                else:
+                    print(f"   ❌ Could not extract frame {frame_index}")
+
+                # Test frame range extraction
+                print("   🔧 Testing frame range extraction...")
+                start_frame = max(0, frame_index - 5)
+                end_frame = min(extractor.get_frame_count() -
+                                1, frame_index + 5)
+                frames = extractor.extract_frames_range(
+                    start_frame, end_frame, step=2)
+                print(
+                    f"   ✅ Extracted {len(frames)} frames from range {start_frame}-{end_frame}")
+
+                # Test frames around point
+                print("   🔧 Testing frames around point...")
+                frames_dict = extractor.extract_frames_around_point(
+                    frame_index, window_size=3)
+                print(
+                    f"   ✅ Extracted {len(frames_dict)} frames around frame {frame_index}")
+
+                # Save a few frames
+                for i, (idx, frame) in enumerate(list(frames_dict.items())[:3]):
+                    frame_path = output_dir / \
+                        f"around_point_frame_{idx:06d}.jpg"
+                    cv2.imwrite(str(frame_path), frame)
+                    print(f"   💾 Saved frame {idx}: {frame_path}")
+
+            except Exception as e:
+                print(f"   ❌ Error during frame extraction: {e}")
+
+        # Test 3: Create test data
+        if args.create_test_data:
+            print("\n🛠️  Creating sample test data...")
+
+            # Create a simple test image
+            test_image = np.zeros((480, 640, 3), dtype=np.uint8)
+
+            # Add some content
+            cv2.rectangle(test_image, (100, 100), (300, 300), (0, 255, 0), -1)
+            cv2.circle(test_image, (200, 200), 50, (255, 0, 0), -1)
+            cv2.putText(test_image, "Test Image", (150, 250),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
+
+            test_image_path = output_dir / "sample_test_image.jpg"
+            cv2.imwrite(str(test_image_path), test_image)
+            print(f"   ✅ Sample test image created: {test_image_path}")
+
+            # Test with created image
+            enhanced = ImageProcessor.enhance_image_quality(test_image)
+            enhanced_test_path = output_dir / "enhanced_test_image.jpg"
+            cv2.imwrite(str(enhanced_test_path), enhanced)
+            print(f"   ✅ Enhanced test image saved: {enhanced_test_path}")
+
+        # Default behavior if no arguments
+        if not any([args.test_image, args.test_video, args.create_test_data]):
+            print("\n🎯 Running default tests...")
+
+            # Test with existing sample if available
+            sample_image_path = Path("input/image/cummins1.png")
+            if sample_image_path.exists():
+                print(f"   Found sample image: {sample_image_path}")
+                image = cv2.imread(str(sample_image_path))
+                if image is not None:
+                    enhanced = ImageProcessor.enhance_image_quality(image)
+                    enhanced_path = output_dir / "default_enhanced.jpg"
+                    cv2.imwrite(str(enhanced_path), enhanced)
+                    print(
+                        f"   ✅ Default enhanced image saved: {enhanced_path}")
+            else:
+                print("   No sample image found, creating test data...")
+                # Create test data as fallback
+                test_image = np.random.randint(
+                    0, 255, (480, 640, 3), dtype=np.uint8)
+                test_path = output_dir / "random_test_image.jpg"
+                cv2.imwrite(str(test_path), test_image)
+                print(f"   ✅ Random test image created: {test_path}")
+
+        print(f"\n🎉 All tests completed successfully!")
+        print(f"📁 Check output directory: {output_dir}")
+        print("\n📖 Usage examples:")
+        print("   python utils/analyse_image.py --test-image input/image/cummins1.png")
+        print("   python utils/analyse_image.py --create-test-data")
+
+    except KeyboardInterrupt:
+        print("\n⚠️  Tests interrupted by user")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\n❌ Error during testing: {e}")
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
